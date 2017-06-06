@@ -21,7 +21,23 @@
 #' Daniel Marc G. dela Torre
 #' Phil-LiDAR 2 PARMap
 #' 
-#' @name spectro_graph_signature
+#' @name spectro_graph_spectro
+
+library(ggplot2)
+
+###############################################################################
+###############################################################################
+# Input Filenames Here
+in.directory <- "E:/DANIEL/Spectrometry/SUC_Submissions/MIT/MAY_SPECTRAL/CASSAVA/CASSAVA2/"  # Input directory
+outputFilename <- "E:/test.tif"  # Output file for graph of spectral signature
+###############################################################################
+
+# Assign variables to respective folders
+list.directories <- list.dirs(in.directory, recursive = FALSE)
+file1 <- list.directories[which(basename(list.directories) == "B_reading_1")]
+file2 <- list.directories[which(basename(list.directories) == "B_reading_2")]
+file3 <- list.directories[which(basename(list.directories) == "B_reading_3")]
+filewr <- list.directories[which(basename(list.directories) == "B_white_ref")]
 
 SpectroMean <- function(x, verbose = TRUE) {
   # Computes the average of the spectral profile.
@@ -49,12 +65,6 @@ SpectroMean <- function(x, verbose = TRUE) {
   return(means)
 }
 
-# Filenames
-file1 <- "~/Spectrometry/SUC_Submissions/MIT/MAY_SPECTRAL/CASSAVA/CASSAVA1/B_reading_1"
-file2 <- "~/Spectrometry/SUC_Submissions/MIT/MAY_SPECTRAL/CASSAVA/CASSAVA1/B_reading_2"
-file3 <- "~/Spectrometry/SUC_Submissions/MIT/MAY_SPECTRAL/CASSAVA/CASSAVA1/B_reading_3"
-filewr <- "~/Spectrometry/SUC_Submissions/MIT/MAY_SPECTRAL/CASSAVA/CASSAVA1/B_white_ref"
-
 # Compute spectral means
 spectroA <- SpectroMean(file1) / SpectroMean(filewr)
 spectroB <- SpectroMean(file2) / SpectroMean(filewr)
@@ -73,22 +83,26 @@ meanSpectroTable <- data.frame(cbind(spectroA, spectroB, spectroC))
 meanSpectro <- apply(meanSpectroTable, 1, mean)
 sdSpectro <- apply(meanSpectroTable, 1, sd)
 
+# Extract values of the wavelengths
 wvnm <- list.files(path = filewr, full.names = TRUE)
 wvnm <- read.table(file = wvnm[1], sep = '', skip = 15)
 colnames(wvnm) <- c('Wavelengths', 'Intensity')
 
-par(mfrow = c(2, 2))
-plot(wvnm$Wavelengths, spectroA, ylim = c(0, 1), main = "Replicate 1", type = "l", col = "red", xlab = "Wavelength\n(nm)", ylab = "Reflectance Ratio")
-plot(wvnm$Wavelengths, spectroB, ylim = c(0, 1), main = "Replicate 2", type = "l", col = "red", xlab = "Wavelength\n(nm)", ylab = "Reflectance Ratio")
-plot(wvnm$Wavelengths, spectroC, ylim = c(0, 1), main = "Replicate 3", type = "l", col = "red", xlab = "Wavelength\n(nm)", ylab = "Reflectance Ratio")
-plot(wvnm$Wavelengths, meanSpectro, ylim = c(0, 1), main = "Average Spectral Signature", type = "l", col = "red", xlab = "Wavelength\n(nm)", ylab = "Reflectance Ratio")
-#abline(h = 0, lty = 2)
-#abline(h = 1, lty = 2)
-#abline(v = min(wvnm$Wavelengths), lty = 2, col = "blue")
-#abline(v = max(wvnm$Wavelengths), lty = 2, col = "blue")
+# Plot spectral signature
+allPlots <- data.frame(cbind(wvnm$Wavelengths, spectroA * 100, spectroB * 100, spectroC * 100, meanSpectro * 100))
+colnames(allPlots) <- c("Wavelength", "Replicate 1", "Replicate 2", "Replicate 3", "Average")
+ggplot(allPlots, aes(x = allPlots$Wavelength)) +
+  geom_line(aes(y = allPlots$`Replicate 1`, colour = "Replicate 1")) +
+  geom_line(aes(y = allPlots$`Replicate 2`, colour = "Replicate 2")) +
+  geom_line(aes(y = allPlots$`Replicate 3`, colour = "Replicate 3")) +
+  geom_line(aes(y = allPlots$`Average`, colour = "Average")) +
+  coord_cartesian(ylim = c(0, 100)) +
+  labs(title = paste("Spectral Signatures of ", basename(in.directory)), x = "Wavelength\n(nm)", y = "Reflectance\n(%)") +
+  scale_colour_discrete(name = "Legend")
 
-allPlots = data.frame(cbind(spectroA, spectroB, spectroC, meanSpectro))
-colnames(allPlots) <- c("Replicate 1", "Replicate 2", "Replicate 3", "Average")
-matplot(wvnm$Wavelengths, allPlots * 100, col = 1:4, ylim = c(0, 100), main = "All Spectra",
-        xlab = "Wavelength\n(nm)", ylab = "Reflectance (%)", type = "l", lwd = 1)
-legend("topleft", legend = colnames(allPlots), col = 1:4, lwd = 1)
+# Save file as tiff
+if (outputFilename == TRUE) {
+  ggsave(outputFilename, plot = last_plot(), device = "tiff", width = 10, height = 8, units = "in", dpi = 300)
+} 
+  
+## END
